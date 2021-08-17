@@ -34,7 +34,34 @@ vector<int> Board::possible_moves(int square) {
     int piece = board[square];
 
     switch (piece) {
-        case ROOK_WHITE || ROOK_BLACK:
+
+        case PAWN_WHITE:
+        case PAWN_BLACK:
+            //TODO
+            break;
+
+        case KNIGHT_WHITE:
+        case KNIGHT_BLACK:
+            //TODO
+            break;
+        
+        case BISHOP_WHITE:
+        case BISHOP_BLACK:
+            //TODO
+            break;
+
+        case ROOK_WHITE:
+        case ROOK_BLACK:
+            //TODO
+            break;
+        
+        case QUEEN_WHITE:
+        case QUEEN_BLACK:
+            //TODO
+            break;
+        
+        case KING_WHITE:
+        case KING_BLACK:
             //TODO
             break;
     }
