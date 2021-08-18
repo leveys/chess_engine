@@ -145,7 +145,17 @@ vector<int> Board::possible_moves(int square, int en_pass_sq) {
         
         case KING_WHITE:
         case KING_BLACK:
-            //TODO
+            
+            for (int offset : kingoffsets) {
+                
+                int target_index = square + offset;
+                int target = board[target_index];
+
+                if (target == 0 || (target != -1 && (target ^ piece) & 8 )) {       // target square is in bounds and empty OR target square is occupied by opponent piece
+                    moves.push_back(target_index);
+                }
+            }
+
             break;
     }
 
