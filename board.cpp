@@ -4,25 +4,24 @@
 using namespace std;
 
 // set up board with starting position
-// the board is seen from whites perspective
 Board::Board() : Board(FEN_START) {}
 
 // set up board with given FEN string
 Board::Board(string fen) {
 
-    for (int i = 0; i < 21; i++) {
-        board[i] = -1;
+    for (int i = 0; i < 21; i++) {      // set first 2 sentinel ranks out of bounds
+        board[i] = OUT_OF_BOUNDS;
     }
 
     int pos = 21;
 
     for (int i = 0; i < fen.length(); i++) {
 
-        if (fen[i] == '/') {
-            board[pos] = -1;
-            board[pos + 1] = -1;
+        if (fen[i] == '/') {        // set sentinel files out of bounds
+            board[pos] = OUT_OF_BOUNDS;
+            board[pos + 1] = OUT_OF_BOUNDS;
             pos += 2;
-        } else if (isdigit(fen[i])) {
+        } else if (isdigit(fen[i])) {   // leave squares empty
             pos += fen[i] - '0';
         } else {
             board[pos] = letter2piece.at(fen[i]);
@@ -30,19 +29,21 @@ Board::Board(string fen) {
         }
     }
 
-    for (int i = pos; i < 120; i++) {
-        board[i] = -1;
+    for (int i = pos; i < 120; i++) {   // set last 2 sentinel ranks out of bounds
+        board[i] = OUT_OF_BOUNDS;
     }
 }
 
+// get piece on given square
 int Board::get(int square) {
     return board[square];
 }
 
-// moves piece from start square to end square
-// both squares must be correct!
+// move piece from start square to end square
 void Board::move(int start, int end) { 
     assert(start >= 0 && start < 120 && end >= 0 && end < 120);
+    assert(board[start] != OUT_OF_BOUNDS && board[end] != OUT_OF_BOUNDS);
+
     board[end] = board[start];
     board[start] = EMPTY;
 }
@@ -55,108 +56,60 @@ vector<int> Board::possible_moves(int square, int en_pass_sq) {
 
     vector<int> moves;
 
-    switch (piece) {
-
-        case PAWN_WHITE:
-            
-            if (square > 30) {   // pawn is not on last rank (should be impossible because of promotion)
-
-                int infront = board[square - 10];
-                int infront2 = board[square - 20];
-                int infrontl = board[square - 11];
-                int infrontr = board[square - 9];
-
-                if (infront == 0) {   // square in front is empty
-                    moves.push_back(square - 10); // pawn moves forward 1 square
-                }
-
-                if ((infrontl > 0 && infrontl & 8) || square - 11 == en_pass_sq) {    // square in front left is occupied by black piece OR en passant is possible here
-                    moves.push_back(square - 11); // pawn captures in front left
-                }
-
-                if ((infrontr > 0 && infrontr & 8) || square - 9 == en_pass_sq) {    // square in front right is occupied by black piece OR en passant is possible here
-                    moves.push_back(square - 9); // pawn captures in front right
-                }
-
-                if (square > 80 && infront == 0 && infront2 == 0) { // pawn is on starting rank and 2 squares in front are empty
-                    moves.push_back(square - 20); // pawn moves forward 2 squares
-                }
-            }
-            
-            break;
-
-        case PAWN_BLACK:
-
-            if (square < 89) {   // pawn is not on last rank (should be impossible because of promotion)
-
-                int infront = board[square + 10];
-                int infront2 = board[square + 20];
-                int infrontl = board[square + 11];
-                int infrontr = board[square + 9];
-
-                if (infront == 0) {   // square in front is empty
-                    moves.push_back(square + 10); // pawn moves forward 1 square
-                }
-
-                if ((infrontl > 0 && !(infrontl & 8)) || square + 11 == en_pass_sq) {    // square in front left is occupied by white piece OR en passant is possible here
-                    moves.push_back(square + 11); // pawn captures in front left
-                }
-
-                if ((infrontr > 0 && !(infrontr & 8)) || square + 9 == en_pass_sq) {    // square in front right is occupied by white piece OR en passant is possible here
-                    moves.push_back(square + 9); // pawn captures in front right
-                }
-
-                if (square < 39 && infront == 0 && infront2 == 0) { // pawn is on starting rank and 2 squares in front are empty
-                    moves.push_back(square + 20); // pawn moves forward 2 squares
-                }
-            }
-            
-            break;
-
-        case KNIGHT_WHITE:
-        case KNIGHT_BLACK:
+    if (piece == PAWN_WHITE || piece == PAWN_BLACK) {
         
-            for (int offset : knightoffsets) {
-                
-                int target_index = square + offset;
-                int target = board[target_index];
+        if (square > 30 && square < 89) {   // pawn is not on last (or first) rank (should be impossible because of promotion)
 
-                if (target == 0 || (target != -1 && (target ^ piece) & 8 )) {       // target square is in bounds and empty OR target square is occupied by opponent piece
-                    moves.push_back(target_index);
-                }
+            int coloroffset = (piece - 5) / 4;  // PAWN_WHITE -> -1     PAWN_BLACK -> 1
+
+            int infront = square + 10 * coloroffset;
+            int infront2 = square + 20 * coloroffset;
+            int infrontl = square + 11 * coloroffset;
+            int infrontr = square + 9 * coloroffset;
+
+            // square in front is empty
+            if (board[infront] == 0) {
+                moves.push_back(infront); // pawn moves forward 1 square
             }
 
-            break;
-        
-        case BISHOP_WHITE:
-        case BISHOP_BLACK:
-            //TODO
-            break;
-
-        case ROOK_WHITE:
-        case ROOK_BLACK:
-            //TODO
-            break;
-        
-        case QUEEN_WHITE:
-        case QUEEN_BLACK:
-            //TODO
-            break;
-        
-        case KING_WHITE:
-        case KING_BLACK:
-            
-            for (int offset : kingoffsets) {
-                
-                int target_index = square + offset;
-                int target = board[target_index];
-
-                if (target == 0 || (target != -1 && (target ^ piece) & 8 )) {       // target square is in bounds and empty OR target square is occupied by opponent piece
-                    moves.push_back(target_index);
-                }
+            // square in front left is occupied by opponent piece OR en passant is possible here
+            if (infrontl == en_pass_sq || (board[infrontl] > 0 && (board[infrontl] ^ piece) & 8)) {
+                moves.push_back(infrontl); // pawn captures in front left
             }
 
-            break;
+            // square in front right is occupied by opponent piece OR en passant is possible here
+            if (infrontr == en_pass_sq || (board[infrontr] > 0 && (board[infrontr] ^ piece) & 8)) {
+                moves.push_back(infrontr); // pawn captures in front right
+            }
+
+            // pawn is on starting rank and 2 squares in front are empty
+            if (((piece == PAWN_WHITE && square > 80) || (piece == PAWN_BLACK && square < 39)) && board[infront] == 0 && board[infront2] == 0) {
+                moves.push_back(infront2); // pawn moves forward 2 squares
+            }
+        }
+
+    } else if (piece > 0) {     // piece is not a pawn 
+        
+        int piecetype = (piece & 7) - 2;
+            
+        for (int i = 0; i < offsetnum[piecetype]; i++) {
+
+            int offset = offsets[piecetype][i];
+            
+            int target_index = square + offset;
+            int target = board[target_index];
+
+            while (sliding[piecetype] && target == 0) {    // piece is sliding type (bishop, rook or queen) AND target square is empty
+                moves.push_back(target_index);
+
+                target_index += offset;
+                target = board[target_index];
+            }
+
+            if (target != OUT_OF_BOUNDS && (target == 0 || (target ^ piece) & 8)) {    // target square is in bounds AND is empty OR occupied by opponent piece
+                moves.push_back(target_index);
+            }
+        }
     }
 
     return moves;

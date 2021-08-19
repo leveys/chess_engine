@@ -1,6 +1,8 @@
 #ifndef BOARD_H
 #define BOARD_H
 
+//  PIECE TYPES
+
 #define OUT_OF_BOUNDS   -1
 #define EMPTY           0
 
@@ -18,6 +20,7 @@
 #define QUEEN_BLACK     13  // 1 101
 #define KING_BLACK      14  // 1 110
 
+
 #define FEN_START "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
 
 #include <string>
@@ -27,11 +30,20 @@
 
 using namespace std;
 
-const char piece2letter[] = {' ', 'P', 'N', 'B', 'R', 'Q', 'K', '/', '/', 'p', 'n', 'b', 'r', 'q', 'k'};
+const char piece2letter[] = {' ', 'P', 'N', 'B', 'R', 'Q', 'K', '?', '?', 'p', 'n', 'b', 'r', 'q', 'k'};
 const map<char, int> letter2piece = { {'P', 1}, {'N', 2}, {'B', 3}, {'R', 4}, {'Q', 5}, {'K', 6}, {'p', 9}, {'n', 10}, {'b', 11}, {'r', 12}, {'q', 13}, {'k', 14} };
 
-const int knightoffsets[] = {-21, -19, -12, -8, 8, 12, 19, 21};
-const int kingoffsets[] = {-11, -10, -9, -1, 1,  9, 10, 11};
+const int offsets[5][8] = {             // board index offsets
+    {-21, -19, -12, -8, 8, 12, 19, 21}, // knight 
+    {-11, -9, 9, 11, 0, 0, 0, 0},       // bishop
+    {-10, -1, 1, 10, 0, 0, 0, 0},       // rook
+    {-11, -10, -9, -1, 1,  9, 10, 11},  // queen
+    {-11, -10, -9, -1, 1,  9, 10, 11}   // king
+};
+
+const int offsetnum[] = {8, 4, 4, 8, 8};    // number of offsets in offset table
+
+const bool sliding[] = {false, true, true, true, false};
 
 
 /*  the chess board is represented by a 10x12 array of integers,
@@ -54,8 +66,6 @@ const int kingoffsets[] = {-11, -10, -9, -1, 1,  9, 10, 11};
     110	111	112	113	114	115	116	117	118	119	
 
 */
-
-
 
 
 class Board {
