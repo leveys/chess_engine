@@ -2,6 +2,7 @@
 #define BOARD_H
 
 //  PIECE TYPES
+//TODO: change to enum/struct   maybe?
 
 #define OUT_OF_BOUNDS   -1
 #define EMPTY           0
@@ -20,6 +21,8 @@
 #define QUEEN_BLACK     13  // 1 101
 #define KING_BLACK      14  // 1 110
 
+// piece & 8 -> color
+// piece & 7 -> piece type
 
 #define FEN_START "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
 
@@ -32,6 +35,7 @@ using namespace std;
 
 const char piece2letter[] = {' ', 'P', 'N', 'B', 'R', 'Q', 'K', '?', '?', 'p', 'n', 'b', 'r', 'q', 'k'};
 const map<char, int> letter2piece = { {'P', 1}, {'N', 2}, {'B', 3}, {'R', 4}, {'Q', 5}, {'K', 6}, {'p', 9}, {'n', 10}, {'b', 11}, {'r', 12}, {'q', 13}, {'k', 14} };
+
 
 const int offsets[5][8] = {             // board index offsets
     {-21, -19, -12, -8, 8, 12, 19, 21}, // knight 
@@ -67,16 +71,39 @@ const bool sliding[] = {false, true, true, true, false};
 
 */
 
+enum Flag {
+    NO_FLAG =       0,
+    EN_PASSANT =    1,
+    KNIGHT_PROMO =  2,
+    BISHOP_PROMO =  3,
+    ROOK_PROMO =    4,
+    QUEEN_PROMO =   5,
+    CASTLES =       6,
+    TWO_FORWARD =   7
+};
+
+struct Move {
+
+    Move(int start, int end, Flag flag) : start(start), end(end), flag(flag) {}
+    Move(int start, int end) : Move(start, end, NO_FLAG) {}
+
+    int start;
+    int end;
+    Flag flag;
+};
+
 
 class Board {
     private:
         int board[120] = {EMPTY};
+        int en_pass_sq = -1;
+        bool castle_rights[4] = {true};     // black kingside, black queenside, white kingside, white queenside
     public:
         explicit Board();
         explicit Board(string fen);
         int get(int square);
-        void move(int start, int end);
-        vector<int> possible_moves(int square, int en_pass_sq);
+        void make_move(Move move);
+        vector<Move> possible_moves(int square);
         friend std::ostream& operator<<(std::ostream& os, Board& b);
 };
 

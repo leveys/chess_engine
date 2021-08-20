@@ -4,6 +4,7 @@
 using namespace std;
 
 int main() {
+
     Board b;
     cout << b << endl;
 
@@ -12,9 +13,9 @@ int main() {
             
             cout << piece2letter[b.get(sq)] << '\t';
 
-            vector<int> moves = b.possible_moves(sq, -1);
+            vector<Move> moves = b.possible_moves(sq);
             for (int i = 0; i < moves.size(); i++) {
-                cout << moves[i] << ' ';
+                cout << moves[i].end << ' ';
             }
 
             cout << endl;
