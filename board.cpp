@@ -3,11 +3,25 @@
 
 using namespace std;
 
-// set up board with starting position
-Board::Board() : Board(FEN_START) {}
-
 // set up board with given FEN string
 Board::Board(string fen) {
+
+    // split FEN string in 6 fields
+
+    string fensplit[6];
+
+    int start = 0;
+    int end = fen.find(' ');
+
+    for (int i = 0; i < 6; i++) {
+
+        fensplit[i] = fen.substr(start, end-start);
+
+        start = end + 1;
+        end = fen.find(' ', start);
+    }
+
+    // set up board
 
     for (int i = 0; i < 21; i++) {      // set first 2 sentinel ranks out of bounds
         board[i] = OUT_OF_BOUNDS;
@@ -15,16 +29,16 @@ Board::Board(string fen) {
 
     int pos = 21;
 
-    for (int i = 0; i < fen.length(); i++) {
+    for (char c : fensplit[0]) {
 
-        if (fen[i] == '/') {        // set sentinel files out of bounds
+        if (c == '/') {        // set sentinel files out of bounds
             board[pos] = OUT_OF_BOUNDS;
             board[pos + 1] = OUT_OF_BOUNDS;
             pos += 2;
-        } else if (isdigit(fen[i])) {   // leave squares empty
-            pos += fen[i] - '0';
+        } else if (isdigit(c)) {   // leave squares empty
+            pos += c - '0';
         } else {
-            board[pos] = letter2piece.at(fen[i]);
+            board[pos] = letter2piece.at(c);
             pos++;
         }
     }
@@ -32,6 +46,30 @@ Board::Board(string fen) {
     for (int i = pos; i < 120; i++) {   // set last 2 sentinel ranks out of bounds
         board[i] = OUT_OF_BOUNDS;
     }
+
+    // set active color
+    turn = fensplit[1] == "b";
+
+    // set castling rights
+    if (fensplit[2] != "-") {
+
+        for (char c : fensplit[2]) {
+
+            int p = letter2piece.at(c);
+            castle_rights[(p & 8)/4 + (p & 1)] = true;
+        }
+    }
+
+    // set en passant target square
+    if (fensplit[3] != "-") {
+        en_pass_sq = algebraic2int(fensplit[3][0], fensplit[3][1]);
+    }
+
+    // set halfmove clock
+    halfmove = stoi(fensplit[4]);
+
+    //set fullmove number
+    fullmove = stoi(fensplit[5]);
 }
 
 // get piece on given square
@@ -84,29 +122,28 @@ void Board::make_move(Move m) {
 
     // remove castling rights
     if (m.start == 25) {            // black king starting square
-        castle_rights[0] = false;
-        castle_rights[1] = false;
+        castle_rights[3] = false;
+        castle_rights[2] = false;
 
     } else if (m.start == 95) {     // white king starting square
-        castle_rights[2] = false;
-        castle_rights[3] = false;
-
-    } else if (m.start == 21 || m.end == 21) {  // black rook queenside starting square
         castle_rights[1] = false;
-
-    } else if (m.start == 28 || m.end == 28) {  // black rook kingside starting square
         castle_rights[0] = false;
 
-    } else if (m.start == 91 || m.end == 91) {  // white rook queenside starting square
+    } else if (m.start == 21 || m.end == 21) {  // black rook queenside starting square
         castle_rights[3] = false;
+
+    } else if (m.start == 28 || m.end == 28) {  // black rook kingside starting square
+        castle_rights[2] = false;
+
+    } else if (m.start == 91 || m.end == 91) {  // white rook queenside starting square
+        castle_rights[1] = false;
         
     } else if (m.start == 98 || m.end == 98) {  // white rook kingside starting square
-        castle_rights[2] = false;
+        castle_rights[0] = false;
         
     }
 }
 
-//TODO change ints to Moves
 // returns all possible moves of piece on given square
 vector<Move> Board::possible_moves(int square) {
     assert(square >= 0 && square < 120 && en_pass_sq >= -1 && en_pass_sq < 120);
@@ -115,7 +152,7 @@ vector<Move> Board::possible_moves(int square) {
 
     vector<Move> moves;
 
-    if (piece == PAWN_WHITE || piece == PAWN_BLACK) {
+    if (piece & 7 == PAWN_WHITE) {      // piece is pawn
         
         if (square > 30 && square < 89) {   // pawn is not on last (or first) rank (should be impossible because of promotion)
 
@@ -126,7 +163,7 @@ vector<Move> Board::possible_moves(int square) {
             int infrontr = square + 9 * coloroffset;
             int infront2 = square + 20 * coloroffset;
 
-            // pawn promotes if it moves
+            // pawn promotion
             if ((piece == PAWN_WHITE && square < 39) || (piece == PAWN_BLACK && square > 80)) {
                 
                 // square in front is empty
@@ -150,7 +187,7 @@ vector<Move> Board::possible_moves(int square) {
                     }
                 }
 
-            } else {
+            } else {    // no promotion
 
                 // square in front is empty
                 if (board[infront] == 0) {
@@ -197,18 +234,18 @@ vector<Move> Board::possible_moves(int square) {
             }
         }
 
+        
         // TODO: check if squares are not attacked
         // castles
-        if (piece == KING_BLACK && castle_rights[0] && board[square + 1] == 0 && board[square + 2] == 0) {
-            moves.push_back(Move(square, square + 2, CASTLES));
 
-        } else if (piece == KING_WHITE && castle_rights[2] && board[square + 1] == 0 && board[square + 2] == 0) {
+        if (piece & 7 == KING_WHITE && castle_rights[(piece & 8)/4]
+            && board[square + 1] == 0 && board[square + 2] == 0) {                                  // kingside castles
+            
             moves.push_back(Move(square, square + 2, CASTLES));
         
-        } else if (piece == KING_BLACK && castle_rights[1] && board[square - 1] == 0 && board[square - 2] == 0 && board[square - 3] == 0) {
-            moves.push_back(Move(square, square - 2, CASTLES));
-
-        } else if (piece == KING_WHITE && castle_rights[3] && board[square - 1] == 0 && board[square - 2] == 0 && board[square - 3] == 0) {
+        } else if (piece & 7 == KING_WHITE && castle_rights[(piece & 8)/4 + 1] 
+                   && board[square - 1] == 0 && board[square - 2] == 0 && board[square - 3] == 0) { // queenside castles
+            
             moves.push_back(Move(square, square - 2, CASTLES));
         }
     }
@@ -227,7 +264,46 @@ std::ostream& operator<<(std::ostream& os, Board& b) {
     }
 
     os << " +-----------------" << endl;
-    os << "   a b c d e f g h " << endl;
+    os << "   a b c d e f g h " << endl << endl;
+
+    bool nl = false;
+
+    for (int i=0; i<4; i++) {
+        if (b.castle_rights[i]) {
+            os << piece2letter[6 + (i/2)*8 - i%2];
+            nl = true;
+        }
+    }
+
+    if (b.en_pass_sq != -1) {
+        os << '\t' << int2algebraic(b.en_pass_sq);
+        nl = true;
+    }
+
+    if (nl) {
+        os << endl;
+    }
+
+    os << "move " << b.fullmove << ", " << color[b.turn] << " to play" << endl;
 
 	return os;
+}
+
+
+int algebraic2int(char file, char rank) {
+
+    int r = 7 - (rank - '1');
+    int f = file - 'a';
+
+    return board64[r*8 + f];
+}
+
+string int2algebraic(int square) {
+
+    int s = board120[square];
+
+    char rank = 8 - s/8 + '0';
+    char file = s%8 + 'a';
+
+    return string({file, rank});
 }
