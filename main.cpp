@@ -8,14 +8,14 @@ int main() {
     Board b;
     cout << b << endl;
 
-    for (int sq = 21; sq < 99; sq++) {
+    for (char sq = 21; sq < 99; sq++) {
         if (b.get(sq) > 0) {
             
             cout << piece2letter[b.get(sq)] << '\t';
 
             vector<Move> moves = b.possible_moves(sq);
             for (int i = 0; i < moves.size(); i++) {
-                cout << moves[i].end << ' ';
+                cout << (int)moves[i].end << ' ';
             }
 
             cout << endl;

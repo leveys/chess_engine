@@ -1,30 +1,27 @@
 #ifndef BOARD_H
 #define BOARD_H
 
+#define FEN_START "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
 //  PIECE TYPES
-//TODO: change to enum/struct   maybe?
 
-#define OUT_OF_BOUNDS   -1
-#define EMPTY           0
+#define OUTSIDE_BOARD   Piece{-1}
+#define EMPTY           Piece{0}
 
-#define PAWN_WHITE      1   // 0 001
-#define KNIGHT_WHITE    2   // 0 010
-#define BISHOP_WHITE    3   // 0 011
-#define ROOK_WHITE      4   // 0 100
-#define QUEEN_WHITE     5   // 0 101
-#define KING_WHITE      6   // 0 110
+#define PAWN        1   // 0001
+#define KNIGHT      2   // 0010
+#define BISHOP      3   // 0011
+#define ROOK        4   // 0100
+#define QUEEN       5   // 0101
+#define KING        6   // 0110
 
-#define PAWN_BLACK      9   // 1 001
-#define KNIGHT_BLACK    10  // 1 010
-#define BISHOP_BLACK    11  // 1 011
-#define ROOK_BLACK      12  // 1 100
-#define QUEEN_BLACK     13  // 1 101
-#define KING_BLACK      14  // 1 110
+#define WHITE       0   // 0000
+#define BLACK       8   // 1000
+
+// piece = PIECE_TYPE | COLOR
 
 // piece & 8 -> color
 // piece & 7 -> piece type
-
-#define FEN_START "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 #include <string>
 #include <iostream>
@@ -33,8 +30,33 @@
 
 using namespace std;
 
+struct Piece {
+
+    signed char val;   // val = type | color
+
+    char type() { return val & 7; }
+    char color() { return val & 8; }
+
+    bool operator==(const Piece other) { return val == other.val; }
+    bool operator!=(const Piece other) { return val != other.val; }
+};
+
 const char piece2letter[] = {' ', 'P', 'N', 'B', 'R', 'Q', 'K', '?', '?', 'p', 'n', 'b', 'r', 'q', 'k'};
-const map<char, int> letter2piece = { {'P', 1}, {'N', 2}, {'B', 3}, {'R', 4}, {'Q', 5}, {'K', 6}, {'p', 9}, {'n', 10}, {'b', 11}, {'r', 12}, {'q', 13}, {'k', 14} };
+const map<char, Piece> letter2piece = { 
+    {'P', Piece{PAWN    | WHITE}}, 
+    {'N', Piece{KNIGHT  | WHITE}}, 
+    {'B', Piece{BISHOP  | WHITE}}, 
+    {'R', Piece{ROOK    | WHITE}}, 
+    {'Q', Piece{QUEEN   | WHITE}}, 
+    {'K', Piece{KING    | WHITE}}, 
+    {'p', Piece{PAWN    | BLACK}}, 
+    {'n', Piece{KNIGHT  | BLACK}}, 
+    {'b', Piece{BISHOP  | BLACK}}, 
+    {'r', Piece{ROOK    | BLACK}}, 
+    {'q', Piece{QUEEN   | BLACK}}, 
+    {'k', Piece{KING    | BLACK}}
+};
+
 const string color[] = {"white", "black"};
 
 
@@ -102,8 +124,7 @@ int algebraic2int(char file, char rank);
 
 string int2algebraic(int square);
 
-
-enum Flag {
+enum Flag : char {
     NO_FLAG =       0,
     EN_PASSANT =    1,
     KNIGHT_PROMO =  2,
@@ -116,28 +137,28 @@ enum Flag {
 
 struct Move {
 
-    Move(int start, int end, Flag flag) : start(start), end(end), flag(flag) {}
-    Move(int start, int end) : Move(start, end, NO_FLAG) {}
+    Move(char start, char end, Flag flag) : start(start), end(end), flag(flag) {}
+    Move(char start, char end) : Move(start, end, NO_FLAG) {}
 
-    int start;
-    int end;
+    char start;
+    char end;
     Flag flag;
 };
 
 
 class Board {
     private:
-        int board[120] = {EMPTY};
-        int en_pass_sq = -1;
+        Piece board[120] = { EMPTY };
+        char en_pass_sq = -1;
         bool castle_rights[4] = {false};     // white kingside, white queenside, black kingside, black queenside
         bool turn;      // 0 -> white to play    1 -> black to play
         int halfmove;
         int fullmove;
     public:
         explicit Board(string fen = FEN_START);
-        int get(int square);
+        Piece get(char square);
         void make_move(Move move);
-        vector<Move> possible_moves(int square);
+        vector<Move> possible_moves(char square);
         friend std::ostream& operator<<(std::ostream& os, Board& b);
 };
 
