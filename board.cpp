@@ -1,4 +1,4 @@
-#include "Board.h"
+#include "Board.hpp"
 #include <assert.h>
 
 using namespace std;
@@ -39,6 +39,13 @@ Board::Board(string fen) {
             pos += c - '0';
         } else {
             board[pos] = letter2piece.at(c);
+
+            if (c == 'K') {
+                kings[0] = pos;
+            } else if (c == 'k') {
+                kings[1] = pos;
+            }
+
             pos++;
         }
     }
@@ -73,17 +80,18 @@ Board::Board(string fen) {
 }
 
 // get piece on given square
-Piece Board::get(char square) {
+Piece Board::get(Byte square) {
     return board[square];
 }
 
 // move piece from start square to end square
-void Board::make_move(Move m) { 
+// if the move is legal, returns true
+bool Board::make_move(Move m) { 
     assert(m.start >= 0 && m.start < 120 && m.end >= 0 && m.end < 120);
     assert(board[m.start] != OUTSIDE_BOARD && board[m.end] != OUTSIDE_BOARD);
 
     Piece piece = board[m.start];
-    en_pass_sq = -1;
+    en_pass_sq = 0;
     
     switch (m.flag) {
 
@@ -97,8 +105,7 @@ void Board::make_move(Move m) {
         case BISHOP_PROMO:
         case ROOK_PROMO:
         case QUEEN_PROMO: {
-            char p = m.flag | piece.color();
-            piece = Piece{p};
+            piece = Piece{s_Byte(m.flag | piece.color())};
             break;
         }
 
@@ -121,6 +128,11 @@ void Board::make_move(Move m) {
     board[m.end] = piece;
     board[m.start] = EMPTY;
 
+    // set king position if changed
+    if (piece.type() == KING) {
+        kings[piece.color()/8] = m.end;
+    }
+
     // remove castling rights
     if (m.start == 25) {            // black king starting square
         castle_rights[3] = false;
@@ -140,14 +152,95 @@ void Board::make_move(Move m) {
         castle_rights[1] = false;
         
     } else if (m.start == 98 || m.end == 98) {  // white rook kingside starting square
-        castle_rights[0] = false;
-        
+        castle_rights[0] = false;   
     }
+
+    // update fullmove, the counter updates after black moves
+    fullmove += turn;
+
+    // update halfmove, the counter is reset after captures or pawn moves, and incremented otherwise
+    if (m.captured != EMPTY || piece.type() == PAWN) {
+        halfmove = 0;
+    } else {
+        halfmove++;
+    }
+
+    // update turn
+    turn = !turn;
+
+    // check if move was legal
+    int castled = (m.flag == CASTLES) * (m.start - m.end)/2;
+    return move_was_legal(piece.color(), castled);
+}
+
+// check if last move made was legal
+bool Board::move_was_legal(Byte color, int castled) {   // castled = 0 -> didnt castle, castled = 1 -> castled kingside, castled = -1 -> castled queenside
+
+    Byte kingpos = kings[color/8];
+
+    if (castled) {  // last move was castling
+        
+        return !is_attacked(kingpos, color) && !is_attacked(kingpos + castled, color) && !is_attacked(kingpos + castled*2, color);
+
+    } else {
+
+        return !is_attacked(kingpos, color);
+    }
+
+}
+
+// check if square is attacked
+bool Board::is_attacked(Byte square, Byte color) {
+
+    // knight/king attacks
+    for (int piece = KNIGHT; piece <= KING; piece += 4) {
+
+        for (int offset : offsets[piece-2]) {
+
+            Piece target = board[square + offset];
+            if (target.is_piece() && target.color() != color && target.type() == piece) {
+                return true;
+            }
+        }
+    }
+
+    // sliding attacks (bishop/rook/queen)
+    for (int piece = BISHOP; piece <= ROOK; piece++) {
+
+        for (int j = 0; j < 4; j++) {
+
+            Byte offset = offsets[piece-2][j];
+            Byte target_index = square + offset;
+            Piece target = board[target_index];
+
+            while (target == EMPTY) {
+                target_index += offset;
+                target = board[target_index];
+            }
+
+            if (target.is_piece() && target.color() != color && (target.type() == piece || target.type() == QUEEN)) {
+                return true;
+            }
+        }
+    }
+
+    // pawn attacks
+    int coloroffset = color / 4 - 1;  // WHITE: 0 -> -1     BLACK: 8 -> 1
+    Piece infrontl = board[square + 11 * coloroffset];
+    Piece infrontr = board[square + 9 * coloroffset];
+
+    if ((infrontl.is_piece() && infrontl.color() != color && infrontl.type() == PAWN) || 
+        (infrontr.is_piece() && infrontr.color() != color && infrontr.type() == PAWN)) {
+        return true;
+    }
+
+    // square is not under attack
+    return false;
 }
 
 // returns all possible moves of piece on given square
-vector<Move> Board::possible_moves(char square) {
-    assert(square >= 0 && square < 120 && en_pass_sq >= -1 && en_pass_sq < 120);
+vector<Move> Board::possible_moves(Byte square) {
+    assert(square >= 0 && square < 120 && en_pass_sq >= 0 && en_pass_sq < 120);
 
     Piece piece = board[square];
 
@@ -171,21 +264,21 @@ vector<Move> Board::possible_moves(char square) {
                 // square in front is empty
                 if (board[infront] == EMPTY) {
                     for (int p = 2; p < 6; p++) {
-                        moves.push_back(Move(square, infront, (Flag)p));    // pawn moves forward 1 square
+                        moves.push_back(Move(square, infront, EMPTY, (Flag)p));    // pawn moves forward 1 square
                     }
                 }
 
                 // square in front left is occupied by opponent piece
                 if (board[infrontl].val > 0 && board[infrontl].color() != piece.color()) {
                     for (int p = 2; p < 6; p++) {
-                        moves.push_back(Move(square, infrontl, (Flag)p));   // pawn captures in front left
+                        moves.push_back(Move(square, infrontl, board[infrontl], (Flag)p));   // pawn captures in front left
                     }
                 }
 
                 // square in front right is occupied by opponent piece
                 if (board[infrontr].val > 0 && board[infrontr].color() != piece.color()) {
                     for (int p = 2; p < 6; p++) {
-                        moves.push_back(Move(square, infrontr, (Flag)p));    // pawn captures in front right
+                        moves.push_back(Move(square, infrontr, board[infrontr], (Flag)p));    // pawn captures in front right
                     }
                 }
 
@@ -193,24 +286,24 @@ vector<Move> Board::possible_moves(char square) {
 
                 // square in front is empty
                 if (board[infront] == EMPTY) {
-                    moves.push_back(Move(square, infront)); // pawn moves forward 1 square
+                    moves.push_back(Move(square, infront, EMPTY)); // pawn moves forward 1 square
                 }
 
                 // square in front left is occupied by opponent piece OR en passant is possible here
                 if (infrontl == en_pass_sq || (board[infrontl].val > 0 && board[infrontl].color() != piece.color())) {
-                    moves.push_back(Move(square, infrontl, infrontl == en_pass_sq ? EN_PASSANT : NO_FLAG)); // pawn captures in front left
+                    moves.push_back(Move(square, infrontl, board[infrontl], infrontl == en_pass_sq ? EN_PASSANT : NO_FLAG)); // pawn captures in front left
                 }
 
                 // square in front right is occupied by opponent piece OR en passant is possible here
                 if (infrontr == en_pass_sq || (board[infrontr].val > 0 && board[infrontr].color() != piece.color())) {
-                    moves.push_back(Move(square, infrontr, infrontr == en_pass_sq ? EN_PASSANT : NO_FLAG)); // pawn captures in front right
+                    moves.push_back(Move(square, infrontr, board[infrontr], infrontr == en_pass_sq ? EN_PASSANT : NO_FLAG)); // pawn captures in front right
                 }
 
                 // pawn is on starting rank and 2 squares in front are empty
                 if (((piece.color() == WHITE && square > 80) || (piece.color() == BLACK && square < 39)) 
                     && board[infront] == EMPTY && board[infront2] == EMPTY) {
 
-                    moves.push_back(Move(square, infront2, TWO_FORWARD)); // pawn moves forward 2 squares
+                    moves.push_back(Move(square, infront2, EMPTY, TWO_FORWARD)); // pawn moves forward 2 squares
                 }
             }
         }
@@ -221,20 +314,20 @@ vector<Move> Board::possible_moves(char square) {
             
         for (int i = 0; i < offsetnum[piecetype]; i++) {
 
-            char offset = offsets[piecetype][i];
+            Byte offset = offsets[piecetype][i];
             
-            char target_index = square + offset;
+            Byte target_index = square + offset;
             Piece target = board[target_index];
 
             while (sliding[piecetype] && target == EMPTY) {    // piece is sliding type (bishop, rook or queen) AND target square is empty
-                moves.push_back(Move(square, target_index));
+                moves.push_back(Move(square, target_index, EMPTY));
 
                 target_index += offset;
                 target = board[target_index];
             }
 
             if (target != OUTSIDE_BOARD && (target == EMPTY || (target.color() != piece.color()))) {    // target square is in bounds AND is empty OR occupied by opponent piece
-                moves.push_back(Move(square, target_index));
+                moves.push_back(Move(square, target_index, target));
             }
         }
 
@@ -245,12 +338,12 @@ vector<Move> Board::possible_moves(char square) {
         if (piece.type() == KING && castle_rights[piece.color()/4]
             && board[square + 1] == EMPTY && board[square + 2] == EMPTY) {                                  // kingside castles
             
-            moves.push_back(Move(square, square + 2, CASTLES));
+            moves.push_back(Move(square, square + 2, EMPTY, CASTLES));
         
         } else if (piece.type() == KING && castle_rights[piece.color()/4 + 1] 
             && board[square - 1] == EMPTY && board[square - 2] == EMPTY && board[square - 3] == EMPTY) {    // queenside castles
             
-            moves.push_back(Move(square, square - 2, CASTLES));
+            moves.push_back(Move(square, square - 2, EMPTY, CASTLES));
         }
     }
 
@@ -279,7 +372,7 @@ std::ostream& operator<<(std::ostream& os, Board& b) {
         }
     }
 
-    if (b.en_pass_sq != -1) {
+    if (b.en_pass_sq) {
         os << '\t' << int2algebraic(b.en_pass_sq);
         nl = true;
     }
@@ -288,7 +381,7 @@ std::ostream& operator<<(std::ostream& os, Board& b) {
         os << endl;
     }
 
-    os << "move " << b.fullmove << ", " << color[b.turn] << " to play" << endl;
+    os << "move " << b.fullmove << ", " << color_str[b.turn] << " to play" << endl;
 
 	return os;
 }
