@@ -1,4 +1,4 @@
-#include "board.h"
+#include "board.hpp"
 #include <stdlib.h>
 
 using namespace std;

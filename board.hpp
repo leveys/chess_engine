@@ -151,6 +151,38 @@ struct Move {
 };
 
 
+struct State {
+
+    State(Byte en_pass_sq, Byte halfmove, bool p_castle_rights[4]) : en_pass_sq(en_pass_sq), halfmove(halfmove) {
+        
+        for (int i = 0; i < 4; i++) {
+            castle_rights = castle_rights | (p_castle_rights[i] << i);
+        }
+    }
+
+    Byte en_pass_sq;
+    Byte halfmove;
+    Byte castle_rights;
+    State* prev;
+};
+
+struct Stack {
+
+    State* tos; // top of stack
+
+    void push(State* state) {
+        state->prev = tos;
+        tos = state;
+    }
+
+    State* pop() {
+        State* top = tos;
+        tos = top->prev;
+        return top;
+    }
+};
+
+
 class Board {
     private:
         Piece board[120] = { EMPTY };
@@ -158,8 +190,9 @@ class Board {
         Byte en_pass_sq = 0;                // en passant target square
         bool castle_rights[4] = {false};    // [white kingside, white queenside, black kingside, black queenside]
         bool turn;                          // 0 -> white to play    1 -> black to play
-        int halfmove;
+        Byte halfmove;                      // 0 to 50 (if 50 then draw)
         int fullmove;
+        Stack stack;
     public:
         explicit Board(string fen = FEN_START);
         Piece get(Byte square);

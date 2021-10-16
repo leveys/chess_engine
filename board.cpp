@@ -89,14 +89,16 @@ Piece Board::get(Byte square) {
 bool Board::make_move(Move m) { 
     assert(m.start >= 0 && m.start < 120 && m.end >= 0 && m.end < 120);
     assert(board[m.start] != OUTSIDE_BOARD && board[m.end] != OUTSIDE_BOARD);
+    assert(halfmove <= 50);
 
     Piece piece = board[m.start];
     en_pass_sq = 0;
     
+    // check flag
     switch (m.flag) {
 
         case EN_PASSANT: {
-            int en_pass_capt = m.start > m.end ? m.end + 10 : m.end - 10;
+            Byte en_pass_capt = m.start > m.end ? m.end + 10 : m.end - 10;
             board[en_pass_capt] = EMPTY;
             break;
         }
@@ -110,8 +112,8 @@ bool Board::make_move(Move m) {
         }
 
         case CASTLES: {
-            int rook_start = 21 + 70*(!piece.color()) + 7*(m.start < m.end);
-            int rook_end = 24 + 70*(!piece.color()) + 2*(m.start < m.end);
+            Byte rook_start = 21 + 70*(!piece.color()) + 7*(m.start < m.end);
+            Byte rook_end = 24 + 70*(!piece.color()) + 2*(m.start < m.end);
 
             board[rook_end] = board[rook_start];
             board[rook_start] = EMPTY;
@@ -128,7 +130,7 @@ bool Board::make_move(Move m) {
     board[m.end] = piece;
     board[m.start] = EMPTY;
 
-    // set king position if changed
+    // update king position if changed
     if (piece.type() == KING) {
         kings[piece.color()/8] = m.end;
     }
@@ -173,20 +175,69 @@ bool Board::make_move(Move m) {
     return move_was_legal(piece.color(), castled);
 }
 
+// unmake last move made
+void Board::unmake_move(Move m) {
+    assert(m.start >= 0 && m.start < 120 && m.end >= 0 && m.end < 120);
+    assert(board[m.start] != OUTSIDE_BOARD && board[m.end] != OUTSIDE_BOARD);
+
+    Piece piece = board[m.end];
+
+    // check flag
+    switch (m.flag) {
+
+        case EN_PASSANT: {
+            Byte en_pass_capt = m.start > m.end ? m.end + 10 : m.end - 10;
+            board[en_pass_capt] = Piece{s_Byte(PAWN | !piece.color() * 8)};
+            break;
+        }
+        
+        case KNIGHT_PROMO:
+        case BISHOP_PROMO:
+        case ROOK_PROMO:
+        case QUEEN_PROMO: {
+            piece = Piece{s_Byte(PAWN | piece.color())};
+            break;
+        }
+
+        case CASTLES: {
+            Byte rook_start = 21 + 70*(!piece.color()) + 7*(m.start < m.end);
+            Byte rook_end = 24 + 70*(!piece.color()) + 2*(m.start < m.end);
+
+            board[rook_start] = board[rook_end];
+            board[rook_end] = EMPTY;
+            break;
+        }
+    }
+
+    // move piece
+    board[m.start] = board[m.end];
+    board[m.end] = m.captured;
+
+    // update king position if changed
+    if (piece.type() == KING) {
+        kings[piece.color()/8] = m.start;
+    }
+
+    // update turn
+    turn = !turn;
+
+    // update fullmove, the counter updates after black moves
+    fullmove -= turn;
+
+    // TODO: update en_pass_sq, halfmove clock, castling rights (stack)
+}
+
+
 // check if last move made was legal
 bool Board::move_was_legal(Byte color, int castled) {   // castled = 0 -> didnt castle, castled = 1 -> castled kingside, castled = -1 -> castled queenside
 
     Byte kingpos = kings[color/8];
 
     if (castled) {  // last move was castling
-        
         return !is_attacked(kingpos, color) && !is_attacked(kingpos + castled, color) && !is_attacked(kingpos + castled*2, color);
-
     } else {
-
         return !is_attacked(kingpos, color);
     }
-
 }
 
 // check if square is attacked

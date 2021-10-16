@@ -4,6 +4,7 @@
 #include <string>
 #include <iostream>
 #include <algorithm>
+#include <bitset>
 
 
 using namespace std;
@@ -92,7 +93,13 @@ int main() {
     //cout << "rook moves correct: " << (rookmoves() ? "yes" : "no") << endl;
     //cout << "king moves correct: " << (kingmoves() ? "yes" : "no") << endl;
 
-    cout << sizeof(int) << endl;
-    cout << sizeof(bool) << endl;
-    cout << sizeof(Board) << endl;
+    cout << sizeof(State) << endl;
+    cout << sizeof(Stack) << endl;
+    cout << sizeof(State*) << endl;
+    cout << sizeof(int*) << endl;
+    cout << sizeof(Byte) << endl;
+
+    for (int i = 1; i < 256; i *= 2) {
+        cout << i << "\t" << bitset<8>(i) << endl;
+    }
 }
